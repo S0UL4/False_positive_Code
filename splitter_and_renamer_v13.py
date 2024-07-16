@@ -254,7 +254,16 @@ def get_name_of_k1(page,file_name):
 
     return full_name_k1
 
-
+#Verifiy that static text exists in the list
+def verify_additional_k1_data(page):
+    try:
+        for data in page.get_text_blocks(sort=True):
+            if("Additional Information From Schedule K-1" in data[4]):
+                return True
+        return False
+    except Exception as e:
+        print(e)
+        return False
 
 # verify if to pick an upcoming page or not and how much page to pick ?
 def pick_next_pages(doc,page):
@@ -264,6 +273,8 @@ def pick_next_pages(doc,page):
             try:
                 if("Form 1065" in p.get_text_blocks()[0][4]):
                     return number
+                elif(not(verify_additional_k1_data(p))):
+                    return number                    
                 else:
                     number+=1
             except:
@@ -272,7 +283,6 @@ def pick_next_pages(doc,page):
         print(e)
         return 0       
     
-
 
 def run(doc,file_path,file_name):
     try:
@@ -283,6 +293,7 @@ def run(doc,file_path,file_name):
         for page in doc:
             # print(page.get_text_blocks())
             selector=page.get_text_blocks()[0][4]
+
 
             if(Form_8879_PE in selector):
                 search_and_replace(page,{"Brian A. Lang":"UpstreamConsulting.tax"},False)
