@@ -2,7 +2,7 @@ from fitz import *
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
-from tkinter.messagebox import showinfo
+from tkinter.messagebox import showinfo, askyesnocancel
 import os
 from io import BytesIO
 import base64
@@ -24,6 +24,7 @@ reverse_name=tk.BooleanVar()
 
 # boolean var to spell out the names 
 spell_out_names=tk.BooleanVar()
+
 
 #function to check the revere_name var
 def reverse_name_change():
@@ -261,7 +262,7 @@ def pick_next_pages(doc,page):
         number=0
         for p in doc.pages(page.number+1):
             try:
-                if("(Form 1065)" in p.get_text_blocks()[0][4]):
+                if("Form 1065" in p.get_text_blocks()[0][4]):
                     return number
                 else:
                     number+=1
@@ -277,11 +278,12 @@ def run(doc,file_path,file_name):
     try:
         global EIN
         found_EIN=False
+        proceed_or_not=False
+        
         for page in doc:
-            
             # print(page.get_text_blocks())
             selector=page.get_text_blocks()[0][4]
-            
+
             if(Form_8879_PE in selector):
                 search_and_replace(page,{"Brian A. Lang":"UpstreamConsulting.tax"},False)
                 bboxes = column_boxes(page, footer_margin=50, no_image_text=True)
@@ -291,8 +293,23 @@ def run(doc,file_path,file_name):
                         if('-'  in EIN_try and len(EIN_try)==10) and (EIN_try[:2].isnumeric() and EIN_try[3:].isnumeric()):
                             EIN=EIN_try
                             found_EIN=True
-                            break  
+                            break
 
+                if(not(EIN) and proceed_or_not==False):
+                    proceed_or_not=askyesnocancel(
+                                    message="EIN on 8879 is Masked for %s\nDo you want to continue ?"%(file_name),
+                                    title="K-1 Unmask, Split and Rename v13"
+                                )
+                    
+                    if(not(proceed_or_not)):
+                        showinfo(
+                            title='Info',
+                            message="Split aborted for "+str(file_name)
+                        )
+                        return 0
+                
+                    
+            
             elif(Form_1065 in selector):
                 search_and_replace(page,{"Brian A. Lang":"UpstreamConsulting.tax","1125 Maxwell Lane, #1124 Hoboken,NJ 07030":"6586 Atlantic Ave Num 2066, Delray Beach, FL 33446"},False)
                 search_and_replace(page,{"1125 Maxwell Lane, #1124 Hoboken,NJ 07030":"6586 Atlantic Ave Num 2066, Delray Beach, FL 33446"},False)
@@ -305,6 +322,7 @@ def run(doc,file_path,file_name):
 
 
             if(form_k1 in selector):
+
                 doc_k1 = fitz.open()
                 custom_name=get_name_of_k1(page,file_name)
 
@@ -314,7 +332,8 @@ def run(doc,file_path,file_name):
                 #print(file_path)
                 file_path_k1=file_path+custom_name+'.pdf'
                 doc_k1.save(file_path_k1, incremental=False, encryption=0)
-            
+
+        return 1        
     except Exception as e:
         showinfo(
             title='Error',
@@ -359,17 +378,20 @@ def select_file():
         #     except Exception as e:
         #         EIN=''
         #     run(doc,EIN,file,file_name)
-
+        err=1
         for file in filenames:
             doc = open(file)
             file_name=file.split('/')[-1].split('_')[0]
             file=file[:len(file)-file[::-1].find('/')]
-            run(doc,file,file_name)
-
-        showinfo(
-            title='Selected File',
-            message="Generated the files successfuly"
-        )
+            err=run(doc,file,file_name)
+            EIN=''
+        if(not(err)):
+            pass
+        else:          
+            showinfo(
+                title='Selected File',
+                message="Generated the files successfuly"
+            )
 
     else:
         showinfo(
